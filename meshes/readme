@@ -1,0 +1,8 @@
+
+
+
+meshes
+
+cube_12.msh 			Einheitswürfel mit 12 Elementen, alg. funktioniert darauf leider nicht. admissibility ev. verletzt
+cube_12_new.msh			Einheitswürfel mit 12 Elementen
+cube_13.msh			4 x Einheitswürfel versetzte 

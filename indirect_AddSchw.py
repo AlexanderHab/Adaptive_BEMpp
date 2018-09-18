@@ -1,11 +1,12 @@
 ###############################################################################
 #Code for the ABEM+solve paper in 3D
 
-#using direct approach
+#adapted for bechmarking the Capacity-Paper
+#using indirect approach
 #using residual error estimator
 
 #code  needs a new version of BEM++
-#+ modifikation of the mesh refinement
+#plus modifikation of the mesh refinement (grid.py)
 
 
 ###############################################################################
@@ -26,12 +27,12 @@ p=0;
 #set quadrature and h-matrix options
 
 bempp.api.global_parameters.quadrature.double_singular =8
-bempp.api.global_parameters.quadrature.near.double_order = 8  # 4
-bempp.api.global_parameters.quadrature.near.single_order = 8 # 4
-bempp.api.global_parameters.quadrature.medium.double_order = 8 # 3
-bempp.api.global_parameters.quadrature.medium.single_order = 8 # 3
-bempp.api.global_parameters.quadrature.far.double_order = 8 #  2
-bempp.api.global_parameters.quadrature.far.single_order = 8 #  2
+bempp.api.global_parameters.quadrature.near.double_order = 4
+bempp.api.global_parameters.quadrature.near.single_order = 4
+bempp.api.global_parameters.quadrature.medium.double_order = 3
+bempp.api.global_parameters.quadrature.medium.single_order = 3
+bempp.api.global_parameters.quadrature.far.double_order = 2
+bempp.api.global_parameters.quadrature.far.single_order = 2
 
 bempp.api.global_parameters.assembly.boundary_operator_assembly_type = 'dense'
 #bempp.api.global_parameters.hmat.max_rank = 4096
@@ -40,34 +41,15 @@ bempp.api.global_parameters.assembly.boundary_operator_assembly_type = 'dense'
 #bempp.api.global_parameters.hmat.admissibility = 'strong' #default = weak
 
 
-###############################################################################
-# define right hand side for direct BEM
-
-def dirichlet_data(x, n, ind, res):
-	#res[0] = x[0]+x[1]+x[2]
-	#res[0] = 2*x[0]**2 - 2*x[1]**2 #- 4*x[2]**2
-	#res[0] = 8*x[0]**5 - 40*x[0]**3*x[1]**2 + 15*x[0]*x[1]**4 -40*x[0]**3*x[2]**2+30*x[0]*x[1]**2*x[2]**2 + 15*x[0]*x[2]**4
-	#res[0] = 1
-	res[0] = x[2]*np.real((x[0]+1.j*x[1])**(2./3))
-	#res[0] = np.real((x[0]+1.j*x[1])**(2))
-	#res[0] = 1./(4*math.pi)*1./((x[0]+0.001)**2 + (x[1]+0.001)**2 + (x[2]+0.001)**2)**(1./2)
 
 
-def test_data(x, n, ind, res):
-	#res[0] = x[0]+x[1]+x[2]
-	#res[0] = 2*x[0]**2 - 2*x[1]**2 #- 4*x[2]**2
-	#res[0] = 8*x[0]**5 - 40*x[0]**3*x[1]**2 + 15*x[0]*x[1]**4 -40*x[0]**3*x[2]**2+30*x[0]*x[1]**2*x[2]**2 + 15*x[0]*x[2]**4
-	res[0] = 1
-	#res[0] = x[2]*np.real((x[0]+1.j*x[1])**(2./3))
-	#res[0] = np.real((x[0]+1.j*x[1])**(2))
-	#res[0] = 1./(4*math.pi)*1./((x[0]+0.001)**2 + (x[1]+0.001)**2 + (x[2]+0.001)**2)**(1./2)
 
 
 ###############################################################################
 # define right hand side for indirect BEM
 
 #def dirichlet_data(x, n, ind, res):
-#	res[0] = 1
+	res[0] = 1
 
 
 
@@ -123,9 +105,6 @@ def precDiag(x,slp_mat):
 	return x
 
 
-
-
-
 ###############################################################################
 ###############################################################################
 
@@ -137,12 +116,12 @@ def precDiag(x,slp_mat):
 for theta in theta_vec:
 	for lambda_cg in lambda_cg_vec:
 		#save name
-		save_name = 'abem_solve_Lshape'+'theta' + str(theta) + 'lambda' + str(lambda_cg)
+		save_name = 'cube_residual_multl'+'theta' + str(theta) + 'lambda' + str(lambda_cg)
 
 
 		#import grid
-		grid = bempp.api.import_grid('Lshape.msh')
-		#grid = bempp.api.import_grid('cube_12.msh')
+		#grid = bempp.api.import_grid('Lshape.msh')
+		grid = bempp.api.import_grid('cube_12.msh')
 
 		#initialize array to store error
 		ada_estimator =  np.zeros(ada_steps,dtype='float64')
@@ -379,9 +358,10 @@ for theta in theta_vec:
 
 				dirichlet_fun_res = bempp.api.GridFunction(p1_space, fun=dirichlet_data)
 
-				rhs_res = (.5*my_id_op + my_dlp_op)*dirichlet_fun_res
-
-				time_2 = timeit.time.time()
+				#rhs_res = (.5*my_id_op + my_dlp_op)*dirichlet_fun_res
+                                rhs_res = dirichlet_fun_res
+				
+                                time_2 = timeit.time.time()
 				print("computing operators for the residual time in s =", time_2 - time_1) 
 
 				###############################################################################
@@ -506,46 +486,46 @@ for theta in theta_vec:
 				
 
 				############################################################################### 
-				# compute the data oscillation
-				# note that, a grid function is the L2-orthogonal projection onto the given space
-				print("compute the oscillations")
-				time_1 = timeit.time.time()	
-
-				oscillation = np.zeros(grid.leaf_view.entity_count(0),dtype='float64')
-
-				dirichlet_fun_osc = bempp.api.GridFunction(osc_space, fun=dirichlet_data)
-
-				id_osc_osc = 	my_id_op = bempp.api.operators.boundary.sparse.identity(
-					osc_space, osc_space, osc_space).weak_form().sparse_operator
-
-				id_p1_osc = bempp.api.operators.boundary.sparse.identity(
-					p1_space, osc_space, osc_space).weak_form().sparse_operator
-
-				# embed the data oscillation in osc_space
-				from scipy.sparse.linalg import spsolve
-
-				dirichlet_fun_p1_in_osc_coeffs = spsolve(id_osc_osc, id_p1_osc*dirichlet_fun.coefficients)
-				dirichlet_fun_p1_in_osc = bempp.api.GridFunction(osc_space, coefficients = dirichlet_fun_p1_in_osc_coeffs)
-				
-				oscillation_fun = dirichlet_fun_osc - dirichlet_fun_p1_in_osc
-
-				
-				for i,element in enumerate(grid.leaf_view.entity_iterator(0)):
-					oscillation[i] = element.geometry.volume**(1./2)*oscillation_fun.surface_grad_norm(element)**2
-
-
-				oscillation_mesh = sum(oscillation)
-
-				time_2 = timeit.time.time()
-				print("computing the oscillations, time in s =", time_2 - time_1)
+#				# compute the data oscillation
+#				# note that, a grid function is the L2-orthogonal projection onto the given space
+#				print("compute the oscillations")
+#				time_1 = timeit.time.time()	
+#
+#				oscillation = np.zeros(grid.leaf_view.entity_count(0),dtype='float64')
+#
+#				dirichlet_fun_osc = bempp.api.GridFunction(osc_space, fun=dirichlet_data)
+#
+#				id_osc_osc = 	my_id_op = bempp.api.operators.boundary.sparse.identity(
+#					osc_space, osc_space, osc_space).weak_form().sparse_operator
+#
+#				id_p1_osc = bempp.api.operators.boundary.sparse.identity(
+#					p1_space, osc_space, osc_space).weak_form().sparse_operator
+#
+#				# embed the data oscillation in osc_space
+#				from scipy.sparse.linalg import spsolve
+#
+##				dirichlet_fun_p1_in_osc_coeffs = spsolve(id_osc_osc, id_p1_osc*dirichlet_fun.coefficients)
+#				dirichlet_fun_p1_in_osc = bempp.api.GridFunction(osc_space, coefficients = dirichlet_fun_p1_in_osc_coeffs)
+#				
+#				oscillation_fun = dirichlet_fun_osc - dirichlet_fun_p1_in_osc
+#
+#				
+#				for i,element in enumerate(grid.leaf_view.entity_iterator(0)):
+#					oscillation[i] = element.geometry.volume**(1./2)*oscillation_fun.surface_grad_norm(element)**2
+#
+#
+#				oscillation_mesh = sum(oscillation)
+#
+#				time_2 = timeit.time.time()
+#				print("computing the oscillations, time in s =", time_2 - time_1)
 
 				############################################################################### 
 				# compute the combined error_indicator = estimator + oscillation
 
 				error_indicator = np.zeros(grid.leaf_view.entity_count(0),dtype='float64')
 
-				error_indicator = error_estimator + oscillation
-
+				#error_indicator = error_estimator + oscillation
+                                error_indicator = error_estimator
 						
 				error_indicator_mesh = sum(error_indicator)
 
@@ -577,8 +557,8 @@ for theta in theta_vec:
 				# collect data for the plot   
 			    
 				ada_number_of_elements[step_counter] = grid.leaf_view.entity_count(0)
-				ada_indicator[step_counter] = np.sqrt(error_indicator_mesh)
-				ada_oscillation[step_counter] = np.sqrt(oscillation_mesh)
+				ada_indicator[step_counter] = error_indicator_mesh
+				#ada_oscillation[step_counter] = oscillation_mesh)
 				ada_estimator[step_counter] = error_estimator_mesh # is already ^(1/2)
 				ada_pcg_steps[step_counter] = pcg_step_counter
 
@@ -630,9 +610,9 @@ for theta in theta_vec:
 					outfile.write(bytes('#Error estimator adaptive\n','UTF-8'))
 					np.savetxt(outfile,ada_estimator)
 
-					outfile.write(bytes('###################################### \n','UTF-8'))
-					outfile.write(bytes('#oscillation adaptive\n','UTF-8'))
-					np.savetxt(outfile,ada_oscillation)
+					#outfile.write(bytes('###################################### \n','UTF-8'))
+					#outfile.write(bytes('#oscillation adaptive\n','UTF-8'))
+					#np.savetxt(outfile,ada_oscillation)
 
 					outfile.write(bytes('###################################### \n','UTF-8'))
 					outfile.write(bytes('#Number of adaptive elements \n','UTF-8'))
